@@ -23,13 +23,20 @@ fn main() {
         return;
     }
 
-    // From libpng/png.h:
-    // "If pnglibconf.h is missing, you can copy scripts/pnglibconf.h.prebuilt to pnglibconf.h"
-    std::fs::copy(
-        "libpng/scripts/pnglibconf.h.prebuilt",
-        "libpng/pnglibconf.h",
-    )
-    .unwrap();
+    // wasip2 has no zlib in its sysroot, and libpng needs one. PNG support in
+    // FreeType only covers PNG-compressed colour bitmap strikes (CBDT/sbix), so
+    // dropping it costs colour emoji and nothing else.
+    let png = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default() != "wasm";
+
+    if png {
+        // From libpng/png.h:
+        // "If pnglibconf.h is missing, you can copy scripts/pnglibconf.h.prebuilt to pnglibconf.h"
+        std::fs::copy(
+            "libpng/scripts/pnglibconf.h.prebuilt",
+            "libpng/pnglibconf.h",
+        )
+        .unwrap();
+    }
 
     let mut build = cc::Build::new();
 
@@ -38,8 +45,10 @@ fn main() {
         .include(".")
         .include("freetype2/include")
         .include("libpng")
-        .define("FT2_BUILD_LIBRARY", None)
-        .define("FT_CONFIG_OPTION_USE_PNG", None);
+        .define("FT2_BUILD_LIBRARY", None);
+    if png {
+        build.define("FT_CONFIG_OPTION_USE_PNG", None);
+    }
 
     add_sources(
         &mut build,
@@ -91,6 +100,10 @@ fn main() {
     );
 
     build.compile("freetype2");
+
+    if !png {
+        return;
+    }
 
     println!("cargo:rustc-link-lib=z");
 
