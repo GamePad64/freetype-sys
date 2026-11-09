@@ -12,7 +12,12 @@ fn add_sources(build: &mut cc::Build, root: &str, files: &[&str]) {
 }
 
 fn main() {
-    if !cfg!(feature = "bundled") {
+    // pkg-config cannot answer for a wasm target: it would probe the host
+    // freetype, and cross builds are refused outright. Webrender pulls this
+    // crate in with default features (no `bundled`) on those graphs, so
+    // wasm targets always take the vendored build below.
+    let wasm = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default() == "wasm";
+    if !cfg!(feature = "bundled") && !wasm {
         let target = env::var("TARGET").unwrap();
         if !target.contains("android") && !target.contains("ohos") {
             pkg_config::Config::new()
