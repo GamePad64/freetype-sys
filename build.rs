@@ -12,8 +12,12 @@ fn add_sources(build: &mut cc::Build, root: &str, files: &[&str]) {
 }
 
 fn main() {
-    if !cfg!(feature = "bundled") {
-        let target = env::var("TARGET").unwrap();
+    let target = env::var("TARGET").unwrap();
+    // A wasm target has no system freetype for pkg-config to find, and the
+    // pkg-config crate refuses cross probes outright. Build the vendored
+    // source instead — the same tree the `bundled` feature compiles.
+    let bundled = cfg!(feature = "bundled") || target.starts_with("wasm32");
+    if !bundled {
         if !target.contains("android") && !target.contains("ohos") {
             pkg_config::Config::new()
                 .atleast_version("24.3.18")
